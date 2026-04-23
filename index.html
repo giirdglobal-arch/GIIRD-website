@@ -1715,8 +1715,7 @@ footer{border-top:3px solid var(--sea);}
   console.log('%cThis site is protected. Unauthorised access or data extraction is prohibited.', s2);
   console.log('%c© ' + new Date().getFullYear() + ' Global Institute for International Relations and Diplomacy', s2);
 
-  /* Disable right-click context menu */
-  document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  /* contextmenu handler removed */
 
   /* Disable common keyboard shortcuts for view-source / devtools */
   document.addEventListener('keydown', function(e){
@@ -1819,9 +1818,7 @@ function doLogout() {
   closeAdmin();
 }
 
-function showAdminSuccess(msg) {
-  var el = document.getElementById('admSuccess');
-  if (el) { el.textContent = msg; el.style.display = 'block'; setTimeout(function(){ el.style.display='none'; }, 4000); }
+, 4000); }
 }
 
 /* Enter key triggers login */
@@ -2120,42 +2117,56 @@ function renderAdminList() {
 }
 
 async function addProgram() {
-  const title = sanitize(document.getElementById('newTitle').value);
-  const desc  = sanitize(document.getElementById('newDesc').value);
-  if (title.length < 3) { alert('Please enter a program title.'); return; }
-  if (desc.length < 10) { alert('Please enter a program description.'); return; }
+  try {
+    var title = sanitize(document.getElementById('newTitle').value);
+    var desc  = sanitize(document.getElementById('newDesc').value);
+    if (!title || title.length < 3) { alert('Please enter a program title (at least 3 characters).'); return; }
+    if (!desc  || desc.length < 3)  { alert('Please enter a program description.'); return; }
 
-  // Handle optional image
-  let imgData = null;
-  const imgFile = document.getElementById('newImg').files[0];
-  if (imgFile) {
-    imgData = await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = e => resolve(e.target.result);
-      reader.readAsDataURL(imgFile);
-    });
+    /* Optional image */
+    var imgData = null;
+    var imgInput = document.getElementById('newImg');
+    if (imgInput && imgInput.files && imgInput.files[0]) {
+      imgData = await new Promise(function(resolve) {
+        var reader = new FileReader();
+        reader.onload = function(e) { resolve(e.target.result); };
+        reader.readAsDataURL(imgInput.files[0]);
+      });
+    }
+
+    progs.push({ id: nextProgId++, title: title, desc: desc, img: imgData });
+
+    /* Clear form */
+    document.getElementById('newTitle').value = '';
+    document.getElementById('newDesc').value = '';
+    if (imgInput) imgInput.value = '';
+    var prev = document.getElementById('imgPreview');
+    if (prev) prev.style.display = 'none';
+
+    renderUpcoming();
+    renderAdminList();
+    showAdminSuccess('Saving...');
+
+    var ok = await saveProgsToSheets();
+    showAdminSuccess(ok
+      ? '✓ Program added — live for all visitors worldwide.'
+      : '✓ Program added locally. Check internet connection.');
+  } catch(err) {
+    console.error('addProgram error:', err);
+    alert('Error adding program: ' + err.message);
   }
-
-  progs.push({id: nextProgId++, title, desc, img: imgData});
-  document.getElementById('newTitle').value = '';
-  document.getElementById('newDesc').value = '';
-  document.getElementById('newImg').value = '';
-  document.getElementById('imgPreview').style.display = 'none';
-  renderUpcoming();
-  renderAdminList();
-  showAdminSuccess('Saving to server...');
-  const ok = await saveProgsToSheets();
-  showAdminSuccess(ok ? '✓ Saved to JSONBin — live for all visitors worldwide now.' : '✓ Program added locally. Sheet sync failed — check internet connection.');
 }
 
 async function removeProgram(id) {
   if (!confirm('Remove this program from the website?')) return;
-  progs = progs.filter(p => p.id !== id);
+  progs = progs.filter(function(p) { return p.id !== id; });
   renderUpcoming();
   renderAdminList();
   showAdminSuccess('Removing...');
-  const ok = await saveProgsToSheets();
-  showAdminSuccess(ok ? '✓ Removed from JSONBin — updated for all visitors worldwide.' : '✓ Removed locally. Sheet sync failed — check internet connection.');
+  var ok = await saveProgsToSheets();
+  showAdminSuccess(ok
+    ? '✓ Program removed — updated for all visitors.'
+    : '✓ Removed locally. Sync failed — check connection.');
 }
 
 function showAdminSuccess(msg) {
