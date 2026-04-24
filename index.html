@@ -1554,6 +1554,68 @@ footer{border-top:3px solid var(--sea);}
   </div>
 </section>
 
+<!-- DONATE — supports the GIIRD mission -->
+<section class="volunteer" id="donate" style="background:var(--cream);">
+  <div class="vol-in container">
+    <div class="vol-grid">
+      <div>
+        <p class="eyebrow">Support Our Work</p>
+        <h2 class="sec-title">Make a Donation</h2>
+        <div class="rule"></div>
+        <p class="sec-body">Your contribution funds GIIRD's humanitarian, environmental and youth programmes across Africa. Every gift — large or small — drives lasting change.</p>
+        <h4 style="margin-top:26px;margin-bottom:9px;font-size:.93rem;color:var(--sea-deep);font-weight:700;">Where Your Donation Goes</h4>
+        <ul class="vol-list">
+          <li>Community outreach &amp; education</li>
+          <li>Environmental conservation drives</li>
+          <li>Health programme support</li>
+          <li>Youth mentorship &amp; training</li>
+          <li>Operational and capacity-building costs</li>
+        </ul>
+        <h4 style="margin-top:20px;margin-bottom:9px;font-size:.93rem;color:var(--sea-deep);font-weight:700;">Payment Methods</h4>
+        <ul class="vol-list">
+          <li>Bank transfer (details shared after pledge)</li>
+          <li>Mobile Money (MTN / Vodafone / AirtelTigo)</li>
+          <li>International wire (USD / EUR / GBP)</li>
+        </ul>
+      </div>
+      <div class="vol-form">
+        <h3>Pledge a Donation</h3>
+        <p class="sub">Tell us about your intended contribution. Our team will follow up within 48 hours with secure payment instructions.</p>
+        <div class="fg"><label for="donName">Full Name *</label><input type="text" id="donName" placeholder="Your full name" required></div>
+        <div class="fg"><label for="donEmail">Email Address *</label><input type="email" id="donEmail" placeholder="you@example.com" required></div>
+        <div class="fg"><label for="donPhone">Phone / WhatsApp</label><input type="tel" id="donPhone" placeholder="+233 ..."></div>
+        <div class="fg" style="display:grid;grid-template-columns:2fr 1fr;gap:10px;">
+          <div><label for="donAmount">Amount *</label><input type="number" id="donAmount" min="1" step="1" placeholder="100" required></div>
+          <div><label for="donCurrency">Currency</label>
+            <select id="donCurrency">
+              <option value="USD">USD</option>
+              <option value="GHS" selected>GHS</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+              <option value="NGN">NGN</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg"><label for="donMethod">Preferred Payment Method</label>
+          <select id="donMethod">
+            <option value="">Select a method...</option>
+            <option>Bank Transfer</option>
+            <option>Mobile Money (MTN)</option>
+            <option>Mobile Money (Vodafone)</option>
+            <option>Mobile Money (AirtelTigo)</option>
+            <option>International Wire</option>
+            <option>Other / Discuss with team</option>
+          </select>
+        </div>
+        <div class="fg"><label for="donMsg">Message (optional)</label><textarea id="donMsg" placeholder="Anything you'd like us to know..."></textarea></div>
+        <input type="text" id="hp_don" name="website" style="position:absolute;left:-9999px;opacity:0;height:0;width:0;" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button class="btn-sub" onclick="submitDonation()" id="donSubmitBtn">Submit Pledge</button>
+        <div class="f-msg" id="donMsg2"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- CONTACT — L1 flags bg -->
 <section class="contact" id="contact">
   <div class="con-bg"></div><div class="con-ov"></div>
@@ -1861,7 +1923,10 @@ document.addEventListener('click', function(e) {
 
 const VOLUNTEER_EP = 'https://formspree.io/f/mykbpppv';
 const CONTACT_EP   = 'https://formspree.io/f/mvzvqqbz';
-const SHEETS_URL   = 'https://script.google.com/macros/s/AKfycbz_wwMWeJBdM-pXOKgHhfcWCmuT6PViDHhMoKOf3ATaB_YBgV4qYtxmDS_fZvUG2pZ7/exec';
+/* Lovable Cloud edge function — writes every submission into the
+   GIIRD Submissions Google Sheet under giirdglobal@gmail.com */
+const SHEETS_URL   = 'https://tneyurfzjubonfpeuoii.supabase.co/functions/v1/submit-form';
+const SHEETS_AUTH  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZXl1cmZ6anVib25mcGV1b2lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5ODIyMTcsImV4cCI6MjA5MjU1ODIxN30.KjT-6oXDjIt3ZIGkWhne1B4WDshPsLADLP5eyk-qLKY';
 
 /* ── JSONBin — live program storage (one-time setup, always in sync) ── */
 /* API config — encoded */
@@ -1929,26 +1994,32 @@ async function sendDual(formspreeUrl, sheetName, fields) {
     }
   };
 
-  // Send to Formspree (email delivery)
-  try {
-    const res = await fetch(formspreeUrl, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-      body: JSON.stringify(fields)
-    });
-    result.formspree = res.ok;
-  } catch(e) { console.warn('Formspree unavailable'); }
+  // Send to Formspree (email delivery) — skipped when no URL provided
+  if (formspreeUrl) {
+    try {
+      const res = await fetch(formspreeUrl, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: JSON.stringify(fields)
+      });
+      result.formspree = res.ok;
+    } catch(e) { console.warn('Formspree unavailable'); }
+  }
 
-  // Send to Google Sheets — correctly structured
+  // Send to Lovable Cloud edge function → Google Sheets
   try {
     const res = await fetch(SHEETS_URL, {
       method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify(payload),
-      headers: {'Content-Type': 'text/plain'}
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SHEETS_AUTH,
+        'Authorization': 'Bearer ' + SHEETS_AUTH
+      },
+      body: JSON.stringify(payload.fields)
     });
     result.sheets = res.ok;
-  } catch(e) { console.warn('Sheets unavailable'); }
+    if (!res.ok) console.warn('Sheets edge function returned', res.status);
+  } catch(e) { console.warn('Sheets unavailable', e); }
 
   return result;
 }
@@ -2079,6 +2150,59 @@ async function submitContact() {
     el.className = 'cf-msg err';
     el.style.display = 'block';
     el.textContent = 'Submission failed. Please email giirdglobal@gmail.com directly.';
+  }
+}
+
+/* ═══════════════════════════════════════
+   DONATION PLEDGE SUBMISSION
+   Destination: Lovable Cloud → Google Sheets "Donations" tab
+   ═══════════════════════════════════════ */
+async function submitDonation() {
+  const el = document.getElementById('donMsg2');
+  el.style.display = 'none';
+
+  // Anti-spam honeypot check
+  if (document.getElementById('hp_don') && document.getElementById('hp_don').value) return;
+
+  // Rate limiting
+  if (!checkRateLimit('donation')) {
+    showMsg(el, false, 'Too many submissions. Please try again later.');
+    return;
+  }
+
+  const name     = sanitize(document.getElementById('donName').value);
+  const email    = sanitize(document.getElementById('donEmail').value);
+  const phone    = sanitize(document.getElementById('donPhone').value);
+  const amount   = sanitize(document.getElementById('donAmount').value, 50);
+  const currency = sanitize(document.getElementById('donCurrency').value, 10);
+  const method   = sanitize(document.getElementById('donMethod').value);
+  const message  = sanitize(document.getElementById('donMsg').value);
+
+  if (name.length < MIN_FIELD_LENGTH) { showMsg(el, false, 'Please enter your full name.'); return; }
+  if (!validEmail(email))             { showMsg(el, false, 'Please enter a valid email address.'); return; }
+  if (!validPhone(phone))             { showMsg(el, false, 'Please enter a valid phone number or leave it blank.'); return; }
+  const amt = parseFloat(amount);
+  if (!isFinite(amt) || amt <= 0)     { showMsg(el, false, 'Please enter a valid donation amount.'); return; }
+
+  const btn = document.getElementById('donSubmitBtn');
+  setBtn(btn, 'Sending...', true);
+
+  // Donations skip Formspree — we only log to Sheets and the team follows up.
+  const result = await sendDual(null, 'Donations', {
+    name, email, phone,
+    amount, currency, method, message,
+    form_type: 'Donation Pledge'
+  });
+
+  setBtn(btn, 'Submit Pledge', false);
+
+  if (result.sheets) {
+    showMsg(el, true, 'Thank you! Your pledge has been recorded — GIIRD will email payment instructions within 48 hours.');
+    ['donName','donEmail','donPhone','donAmount','donMethod','donMsg'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('donCurrency').value = 'GHS';
+    console.info('[GIIRD] Donation pledge submitted successfully', new Date().toISOString());
+  } else {
+    showMsg(el, false, 'Submission failed. Please email giirdglobal@gmail.com directly.');
   }
 }
 
